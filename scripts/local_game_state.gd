@@ -20,12 +20,14 @@ func _default_player() -> Dictionary:
         "nickname": "LocalPlayer", "gold": 1000, "gems": 0, "medals": 0,
         "stage": 1, "unit_level": 1, "total_kills": 0,
         "enemy_hp": 12, "hero_hp": 100,
-        "units": [1], "relics": [], "inventory": [],
+        "units": [1], "unit_grades": [1], "relics": [], "inventory": [],
         "equipment": {}, "pets": [], "active_pet": -1,
         "ships": [], "active_ship": -1, "ship_explore_next": 0,
         "guild": {"level": 1, "xp": 0, "raid_next": 0},
         "relic_levels": {}, "shards": 0,
         "tower_floor": 0, "dungeon_tickets": 3, "dungeon_last_refill": 0,
+        "daily_day": -1, "daily_login_claimed": false,
+        "daily_quest_claimed": false, "daily_boss_runs": 0, "daily_kills": 0,
         "achievements": {}, "last_seen_unix": 0,
         "quest_end": {}, "quest_levels": [1, 0, 0, 0, 0, 0, 0],
         "auto_battle": false, "speed_until": 0, "speed_tier": 2,
@@ -74,6 +76,10 @@ func load_state() -> void:
             player.enemy_hp = 10 + int(player.stage) * 2
         if not player.units is Array or player.units.is_empty():
             player.units = [maxi(1, int(player.unit_level))]
+        if not player.unit_grades is Array:
+            player.unit_grades = []
+        while player.unit_grades.size() < player.units.size():
+            player.unit_grades.append(1)
         if not player.relics is Array:
             player.relics = []
         if not player.inventory is Array:
@@ -166,8 +172,8 @@ func reward_for_stage() -> int:
 
 func attack_power() -> int:
     var power := 0
-    for level in player.units:
-        power += 4 + int(level) * 2
+    for i in player.units.size():
+        power += 4 + int(player.units[i]) * 2 * int(player.unit_grades[i])
     for i in player.relics.size():
         power += 2 + int(player.relic_levels.get(str(i), 1))
     for key in player.equipment.keys():
@@ -214,6 +220,8 @@ func _clear_stage_internal() -> int:
     player.gold += reward
     player.stage += 1
     player.total_kills += 10
+    _ensure_daily()
+    player.daily_kills += 10
     player.enemy_hp = 10 + int(player.stage) * 2
     player.hero_hp = mini(100, int(player.hero_hp) + 5)
     if int(player.stage) % 10 == 0:
@@ -248,6 +256,20 @@ func buy_unit() -> bool:
         return false
     player.gold -= UNIT_COSTS[index]
     player.units.append(1)
+    player.unit_grades.append(1)
+    _changed()
+    return true
+
+func promote_unit(index: int) -> bool:
+    if index < 0 or index >= player.units.size():
+        return false
+    var grade := int(player.unit_grades[index])
+    if grade >= 5 or int(player.units[index]) < grade * 10:
+        return false
+    if int(player.shards) < grade * 10:
+        return false
+    player.shards -= grade * 10
+    player.unit_grades[index] = grade + 1
     _changed()
     return true
 
@@ -458,6 +480,47 @@ func claim_achievement(kind: String) -> bool:
         return false
     player.achievements[kind] = true
     player.gems += 20
+    _changed()
+    return true
+
+func _ensure_daily(now_unix: int = -1) -> void:
+    var now := now_unix if now_unix >= 0 else int(Time.get_unix_time_from_system())
+    var day := int(floor(float(now + 32400) / 86400.0))
+    if int(player.daily_day) == day:
+        return
+    player.daily_day = day
+    player.daily_login_claimed = false
+    player.daily_quest_claimed = false
+    player.daily_boss_runs = 0
+    player.daily_kills = 0
+
+func claim_daily_login() -> bool:
+    _ensure_daily()
+    if player.daily_login_claimed:
+        return false
+    player.daily_login_claimed = true
+    player.gold += 200
+    player.gems += 20
+    _changed()
+    return true
+
+func claim_daily_quest() -> bool:
+    _ensure_daily()
+    if player.daily_quest_claimed or int(player.daily_kills) < 50:
+        return false
+    player.daily_quest_claimed = true
+    player.gems += 15
+    player.shards += 2
+    _changed()
+    return true
+
+func run_world_boss() -> bool:
+    _ensure_daily()
+    if int(player.stage) < 30 or int(player.daily_boss_runs) >= 3:
+        return false
+    player.daily_boss_runs += 1
+    player.gold += attack_power() * 50
+    player.shards += 3
     _changed()
     return true
 

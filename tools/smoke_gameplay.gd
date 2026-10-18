@@ -66,6 +66,21 @@ func run_checks() -> void:
     assert(game.contribute_guild())
     assert(game.run_guild_raid())
     assert(not game.run_guild_raid())
+    game.player.units[0] = 10
+    game.player.shards = 20
+    assert(game.promote_unit(0))
+    assert(game.player.unit_grades[0] == 2)
+    assert(not game.promote_unit(0))
+    assert(game.claim_daily_login())
+    assert(not game.claim_daily_login())
+    game.player.daily_kills = 50
+    assert(game.claim_daily_quest())
+    assert(not game.claim_daily_quest())
+    game.player.stage = 30
+    assert(game.run_world_boss())
+    assert(game.run_world_boss())
+    assert(game.run_world_boss())
+    assert(not game.run_world_boss())
     assert(not game.rebirth())
     game.player.stage = 50
     assert(game.rebirth())
