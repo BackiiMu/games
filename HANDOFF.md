@@ -9,7 +9,16 @@
 - 원본 배경 이미지와 추출 리소스를 Godot에 연결함.
 - `UI2.vo`의 AMF3 좌표를 읽어 UI2 텍스처 시트의 프레임 767개를 `assets/ui2_sheet.json`으로 복원함.
 - `scripts/main_ui.gd`가 현재 메인 씬. 원본 코드 기준 전투/콘텐츠/하단 메뉴의 640px 좌표계를 적용했고, 원본 프레임으로 하단 6개 메뉴, 퀘스트/병사 행, 재화 아이콘을 구성함.
-- 로컬 저장, 스테이지 보상, 골드, 유닛 강화, 자동 전투, 상점 토글의 기본 동작 구현.
+- 로컬 저장, 스테이지 보상, 골드, 유닛 강화, 자동 전투의 기본 동작 구현. 상점 화면은 아직 자리 표시 상태.
+
+## 원본 APK 실행 조사 (2026-10-19)
+
+- 원본 XAPK: `../com.ekkorr.endlessfrontier_5.5.5.xapk`. 기본 APK와 언어/화면 밀도/ABI 분할 APK가 들어 있으며 OBB는 없음.
+- 기본 APK는 `reference/main.apk`에 보관되어 있음. 실행할 때는 기본 APK만이 아니라 필요한 분할 APK를 함께 설치해야 함.
+- XAPK에 포함된 네이티브 ABI 분할은 `config.armeabi_v7a.apk`(32비트 ARM) 하나임. 설치된 AVD는 `Medium_Phone_API_36`, ARM64 시스템 이미지. 32비트 앱 지원 여부는 부팅 후 미확인.
+- `adb`와 Android Emulator는 `~/Library/Android/sdk`에 설치되어 있으나, AVD 부팅은 `Not enough space to create userdata partition`으로 실패함. 당시 AVD 경로의 여유 공간 약 5.9GB, 요구량 약 7.4GB. `-partition-size 2048` 옵션으로 재시도해도 같은 검사에서 실패함.
+- 당시 `adb devices -l`에 연결 기기는 없었음. 따라서 원본 앱 실행 화면은 아직 확보하지 못함.
+- 다음 시도: 32비트 ARM 앱을 지원하는 Android 실기기 연결 후 `adb install-multiple`로 기본 APK, `config.armeabi_v7a.apk`, `config.ko.apk`, `config.xhdpi.apk` 등을 함께 설치. 또는 디스크 공간을 확보하고 32비트 지원 시스템 이미지로 별도 AVD를 준비. 기존 AVD 데이터는 임의로 삭제하지 말 것.
 
 ## 우선순위 규칙
 
