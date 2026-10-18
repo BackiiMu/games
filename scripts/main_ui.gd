@@ -16,6 +16,7 @@ var stage_text: Label
 var gold_text: Label
 var notice: Label
 var selected := 0
+var subview := -1
 
 func _ready() -> void:
     sheet = JSON.parse_string(FileAccess.get_file_as_string("res://assets/ui2_sheet.json"))
@@ -58,6 +59,10 @@ func _ready() -> void:
 
 func select_menu(index: int) -> void:
     selected = index
+    subview = -1
+    render_menu()
+
+func render_menu() -> void:
     clear_layer(bottom)
     block(bottom, 0, 5, 640, 91, Color("521b0a"))
     for i in 6:
@@ -69,21 +74,23 @@ func select_menu(index: int) -> void:
         hit(bottom, x, 0, 106, 96, select_menu.bind(i))
     clear_layer(content)
     block(content, 0, 0, 640, 781, Color("101010"))
-    if index == 0:
+    if subview >= 0:
+        build_subview()
+    elif selected == 0:
         build_quests()
-    elif index == 1:
+    elif selected == 1:
         build_units()
-    elif index == 2:
+    elif selected == 2:
         build_treasures()
-    elif index == 3:
+    elif selected == 3:
         build_pvp()
-    elif index == 4:
+    elif selected == 4:
         build_inventory()
-    elif index == 5:
+    elif selected == 5:
         build_shop()
     else:
         block(content, 0, 0, 640, 88, Color("1f1f1f"))
-        label(content, TITLES[index], 20, 17, 600, 50, 28, Color("ffdb65"))
+        label(content, TITLES[selected], 20, 17, 600, 50, 28, Color("ffdb65"))
         label(content, "원본 UI 분석 및 재현 진행 중", 20, 120, 600, 50, 21, Color("cccccc"))
         notice = null
 
@@ -91,10 +98,12 @@ func build_quests() -> void:
     block(content, 0, 0, 640, 88, Color("1e1e1e"))
     nine(content, "UI_COMMON_BUTTON_ON", 5, 5, 158, 77, 13)
     sprite(content, "BTN_SKILL_CHANGE2", 18, 22, 128, 49)
+    hit(content, 5, 5, 158, 77, open_subview.bind(0))
     nine(content, "UI_COMMON_BUTTON_ON", 480, 5, 155, 77, 13)
     sprite(content, "UI_MOVIE_SMALL", 511, 23, 38, 42)
     sprite(content, "UI_GOLD_ICON", 547, 29, 23, 24)
     label(content, "6a", 574, 26, 52, 34, 21, Color("ffd04b"))
+    hit(content, 480, 5, 155, 77, open_subview.bind(1))
     for i in 7:
         var y := 88 + i * 110
         nine(content, "UI_LIST_BG", 0, y, 640, 110, 3)
@@ -129,6 +138,7 @@ func build_units() -> void:
         label(content, "병사 %d" % (i + 1), 102, y + 15, 270, 31, 23, Color("ffdc65"))
         label(content, "Lv. %d" % LocalGameState.player.unit_level, 103, y + 53, 230, 30, 19, Color.WHITE)
         game_button(content, "강화", 475, y + 25, 148, 60, enhance)
+        hit(content, 15, y + 12, 440, 85, open_subview.bind(4))
     notice = label(content, "", 15, 493, 610, 30, 18, Color("f4d771"))
 
 func build_treasures() -> void:
@@ -138,9 +148,13 @@ func build_treasures() -> void:
     notice = null
 
 func build_pvp() -> void:
-    menu_bar("대전", ["UI_PVP_ICON", "UI_PVP_RANK", "PVP_TICKET_ON"],
-        ["대전", "랭킹", "입장권"])
-    panel_row(90, "대전 준비", "대전 상대와 보상은 로컬 모드에서 준비 중", "UI_PVP_ICON")
+    menu_bar("명예코인 : 0", ["BTN_COIN_SHOP"], ["명예 상점"])
+    var titles := ["무한랭킹전", "일일 랭킹전", "도전의 탑", "차원의 전투", "월드 보스"]
+    var icons := ["UI_PVP_ICON", "UI_DAILY_RANKING_ICON_ON", "ICON_TOWER", "UI_OUTLAND_ICON", "BOSS-RAID-ICON"]
+    for i in titles.size():
+        var y := 80 + i * 127
+        panel_row(y, titles[i], "입장 및 보상 확인", icons[i])
+        hit(content, 0, y, 640, 106, open_subview.bind(i))
     notice = null
 
 func build_inventory() -> void:
@@ -157,6 +171,52 @@ func build_shop() -> void:
     panel_row(314, "20분간 병사공격력 증가", "보석 100", "UI_SHOP_STRONG_UP")
     notice = null
 
+func open_subview(index: int) -> void:
+    subview = index
+    render_menu()
+
+func close_subview() -> void:
+    subview = -1
+    render_menu()
+
+func build_subview() -> void:
+    var title := ""
+    var icon := "TreasureBox"
+    var rows: Array[String] = []
+    match selected:
+        0:
+            title = ["퀘스트 스킬", "퀘스트 보상"][mini(subview, 1)]
+            icon = "BTN_SKILL_CHANGE2" if subview == 0 else "UI_MOVIE_SMALL"
+            rows = ["퀘스트 목록", "스킬 및 보상 정보", "로컬 모드에서는 온라인 보상이 비활성화됩니다"]
+        1:
+            title = ["병사구입", "시간의 상점", "일괄 강화", "병사 장비", "병사 상세"][mini(subview, 4)]
+            icon = ["BTN_BUY_UNIT_SHOP", "BTN_TIME_SHOP", "BTN_ALL_LEVELUP", "UNIT_MENU_4", "UNIT_MENU_1"][mini(subview, 4)]
+            rows = ["보유 병사와 슬롯", "강화 및 장비", "로컬 데이터로 확장 예정"]
+        2:
+            title = ["유물구입", "시간의 상점", "유물 초월", "던전"][mini(subview, 3)]
+            icon = ["TREASURE_SHOP", "BTN_TIME_SHOP", "BTN_TRANS_TREASURE1", "DUNGEON_ITEM0001"][mini(subview, 3)]
+            rows = ["유물 슬롯", "유물 조각 및 재화", "첫 환생 이후 원본에서 해금"]
+        3:
+            title = ["무한랭킹전", "일일 랭킹전", "도전의 탑", "차원의 전투", "월드 보스", "명예 상점"][mini(subview, 5)]
+            icon = ["UI_PVP_ICON", "UI_DAILY_RANKING_ICON_ON", "ICON_TOWER", "UI_OUTLAND_ICON", "BOSS-RAID-ICON", "BTN_COIN_SHOP"][mini(subview, 5)]
+            rows = ["도전 정보", "보상 목록", "온라인 상대 데이터는 로컬 모드에 포함되지 않습니다"]
+        4:
+            title = ["병사", "유물", "펫", "전함"][mini(subview, 3)] + " 인벤토리"
+            icon = ["UNIT_MENU_1", "TreasureBox", "UI-PET-TICKET", "BATTLE_SHIP_ICON"][mini(subview, 3)]
+            rows = ["보관된 내역이 없습니다."]
+        5:
+            title = ["보석 상점", "버프 상점", "프리미엄 상점", "병사 상점"][mini(subview, 3)]
+            icon = ["BTN_GEM_SHOP", "BTN_GOLD_SHOP", "BTN_BUFF_SHOP", "BTN_BUY_UNIT_SHOP"][mini(subview, 3)]
+            rows = ["상품 목록", "로컬 재화 규칙 준비 중", "온라인 결제는 구현하지 않습니다"]
+    block(content, 0, 0, 640, 76, Color("1f2020"))
+    sprite(content, "UI_ARROW_HEAD", 14, 19, 36, 36)
+    label(content, title, 63, 8, 550, 59, 25, Color("ffdc65"))
+    hit(content, 0, 0, 65, 76, close_subview)
+    sprite(content, icon, 252, 109, 136, 136)
+    for i in rows.size():
+        panel_row(284 + i * 110, rows[i], "", icon)
+    notice = null
+
 func menu_bar(title: String, icons: Array, captions: Array) -> void:
     block(content, 0, 0, 640, 76, Color("1f2020"))
     label(content, title, 12, 4, 190, 67, 21, Color("ffdc65"))
@@ -167,6 +227,7 @@ func menu_bar(title: String, icons: Array, captions: Array) -> void:
         nine(content, "UI_COMMON_BUTTON_ON", x, 7, button_width, 62, 12)
         sprite(content, icons[i], x + 5, 12, 35, 35)
         label(content, captions[i], x + 2, 42, button_width - 4, 24, 13, Color("f2cf6d"), HORIZONTAL_ALIGNMENT_CENTER)
+        hit(content, x, 7, button_width, 62, open_subview.bind(5 if selected == 3 else i))
 
 func panel_row(y: float, title: String, subtitle: String, icon_name: String) -> void:
     nine(content, "UI_LIST_BG", 0, y, 640, 106, 3)

@@ -1,13 +1,13 @@
 # 화면별 사전 준비 (EF 5.5.5)
 
-범위: 하단 메뉴 6개 진입 화면. 원본에는 이 외에도 팝업·상점 세부 화면·길드·펫 등 다수의 화면이 있다. 아래의 `기본 화면`은 현재 Godot에서 열리고 렌더되는 뼈대이지 원본과 동일한 완성 화면이 아니다.
+범위: 하단 메뉴 6개 진입 화면과 주요 하위 진입 상태 25개. 원본에는 이 외에도 팝업·상점 세부 화면·길드·펫 등 다수의 화면이 있다. 아래의 `기본 화면`은 현재 Godot에서 열리고 렌더되는 뼈대이지 원본과 동일한 완성 화면이 아니다.
 
 | 하단 탭 | 원본 진입 클래스 | Godot 상태 | 우선 필요한 후속 작업 |
 |---|---|---|---|
 | 퀘스트 | `view/QuestView.as`, `subMenu/QuestSubMenu.as`, `itemRenderer/QuestItemRenderer.as` | 실기기 캡처 기준 행/아이콘 구성 | 글꼴·버튼·동적 전투 보정 |
 | 병사 | `view/UnitView.as`, `subMenu/UnitSubMenu.as`, `itemRenderer/UnitItemRenderer.as` | 서브메뉴/목록 기본 화면 | 실제 보유 병사 데이터·원본 행/상세/구매 화면 |
 | 유물 | `view/TreasureView.as`, `subMenu/TreasureSubMenu.as`, `itemRenderer/TreasureItemRenderer.as` | 빈 상태·서브메뉴 기본 화면 | 환생 잠금 조건·유물 목록/구매/초월/던전 |
-| 대전 | `menu/BottomMenu.as`의 index 4 경로 | 진입 기본 화면 | 원본 대전 메뉴 경로·랭킹/상대 목록 실화면 캡처 |
+| 대전 | `menu/BottomMenu.as`의 index 4 → `view/EventView.as`, `subMenu/EventSubMenu.as` | 원본 AS3에 명시된 5개 이벤트 목록과 하위 진입 화면 | 랭킹/상대 목록 실화면 캡처 |
 | 인벤토리 | `inventory/InventoryMainView.as`, `inventory/subMenu/InventoryMainSubMenu.as` | 빈 상태·분류 기본 화면 | 원본 분류 탭, 7열 아이템 목록·상세 |
 | 상점 | `view/ShopView.as`, `subMenu/ShopSubMenu.as`, `itemRenderer/ShopItemRender2.as` | 원본 AS3의 첫 3개 상품 제목 기반 기본 목록 | 실제 버튼/가격 배치·서버리스 구매 규칙 |
 
@@ -21,6 +21,9 @@
 - `assets/treasure_ui_sheet.json`: TREASURE_UI 시트 45프레임. 유물 버튼/테두리 작업용.
 - 시트 좌표는 `tools/read_amf_sheet.py`로 원본 SWF의 `.vo` 바이너리에서 복원했다.
 - `tools/render_preview.gd` 실행 시 `reference/preview_{quest,unit,treasure,pvp,inventory,shop}.png`가 생성된다. 현재 비교 기준 원본 캡처는 퀘스트 화면 하나뿐이다. 나머지 다섯 화면은 실기기 원본 캡처를 확보해야 시각적 일치 검증이 가능하다.
+- `tools/smoke_screens.gd`: 6개 메인 + 25개 하위 진입 상태를 자동 순회한다. 이는 실행/전환 검증이지 원본 재현 검증은 아니다.
+- `tools/index_source_screens.py`가 원본 디컴파일 트리에서 View 77, SubMenu 38, Popup 173개(총 288개)를 `assets/source_screen_index.json`으로 목록화했다. 이 중 대부분은 미구현이며, 이 숫자는 실제 사용자에게 보이는 독립 화면 수와 같지 않다.
+- 현재 하위 진입 화면은 원본 클래스/기능명에 따른 공통 UI 셸이며 실제 목록 데이터, 버튼 위치, 팝업과 서버리스 동작은 미완성이다. 상단 전투 영역도 정적 캡처다.
 
 ## 구현 순서
 

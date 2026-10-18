@@ -16,4 +16,10 @@ func capture() -> void:
         var path := "res://reference/preview_%s.png" % titles[i]
         var result := image.save_png(path)
         print("preview_capture=", result, " path=", path, " size=", image.get_size())
+    current_scene.select_menu(3)
+    current_scene.open_subview(2)
+    for frame in 2:
+        await process_frame
+    var detail := root.get_texture().get_image()
+    print("preview_capture=", detail.save_png("res://reference/preview_tower.png"), " path=res://reference/preview_tower.png")
     quit()
