@@ -7,7 +7,13 @@ func capture() -> void:
     change_scene_to_file("res://scenes/main.tscn")
     for frame in 5:
         await process_frame
-    var image := root.get_texture().get_image()
-    var result := image.save_png("res://reference/godot_current.png")
-    print("preview_capture=", result, " size=", image.get_size())
+    var titles := ["quest", "unit", "treasure", "pvp", "inventory", "shop"]
+    for i in titles.size():
+        current_scene.select_menu(i)
+        for frame in 2:
+            await process_frame
+        var image := root.get_texture().get_image()
+        var path := "res://reference/preview_%s.png" % titles[i]
+        var result := image.save_png(path)
+        print("preview_capture=", result, " path=", path, " size=", image.get_size())
     quit()

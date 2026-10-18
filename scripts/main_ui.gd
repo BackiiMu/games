@@ -73,6 +73,14 @@ func select_menu(index: int) -> void:
         build_quests()
     elif index == 1:
         build_units()
+    elif index == 2:
+        build_treasures()
+    elif index == 3:
+        build_pvp()
+    elif index == 4:
+        build_inventory()
+    elif index == 5:
+        build_shop()
     else:
         block(content, 0, 0, 640, 88, Color("1f1f1f"))
         label(content, TITLES[index], 20, 17, 600, 50, 28, Color("ffdb65"))
@@ -112,8 +120,8 @@ func build_quests() -> void:
     notice = label(content, "", 15, 745, 610, 30, 18, Color("f4d771"))
 
 func build_units() -> void:
-    block(content, 0, 0, 640, 88, Color("1f1f1f"))
-    label(content, "병사", 20, 17, 600, 50, 28, Color("ffdb65"))
+    menu_bar("병사", ["BTN_BUY_UNIT_SHOP", "BTN_TIME_SHOP", "BTN_ALL_LEVELUP", "UNIT_MENU_4"],
+        ["병사구입", "시간의 상점", "일괄 강화", "병사 장비"])
     for i in 4:
         var y := 88 + i * 110
         nine(content, "UI_LIST_BG", 0, y, 640, 110, 3)
@@ -122,6 +130,49 @@ func build_units() -> void:
         label(content, "Lv. %d" % LocalGameState.player.unit_level, 103, y + 53, 230, 30, 19, Color.WHITE)
         game_button(content, "강화", 475, y + 25, 148, 60, enhance)
     notice = label(content, "", 15, 493, 610, 30, 18, Color("f4d771"))
+
+func build_treasures() -> void:
+    menu_bar("유물 0/0", ["TREASURE_SHOP", "BTN_TIME_SHOP", "BTN_TRANS_TREASURE1", "DUNGEON_ITEM0001"],
+        ["유물구입", "시간의 상점", "유물 초월", "던전"])
+    label(content, "소유한 유물이 없습니다", 70, 220, 500, 60, 23, Color("999999"), HORIZONTAL_ALIGNMENT_CENTER)
+    notice = null
+
+func build_pvp() -> void:
+    menu_bar("대전", ["UI_PVP_ICON", "UI_PVP_RANK", "PVP_TICKET_ON"],
+        ["대전", "랭킹", "입장권"])
+    panel_row(90, "대전 준비", "대전 상대와 보상은 로컬 모드에서 준비 중", "UI_PVP_ICON")
+    notice = null
+
+func build_inventory() -> void:
+    menu_bar("인벤토리", ["UNIT_MENU_1", "TreasureBox", "UI-PET-TICKET", "BATTLE_SHIP_ICON"],
+        ["병사", "유물", "펫", "전함"])
+    label(content, "보관된 내역이 없습니다.", 50, 215, 540, 60, 22, Color("999999"), HORIZONTAL_ALIGNMENT_CENTER)
+    notice = null
+
+func build_shop() -> void:
+    menu_bar("상점", ["BTN_GEM_SHOP", "BTN_GOLD_SHOP", "BTN_BUFF_SHOP", "BTN_BUY_UNIT_SHOP"],
+        ["보석 상점", "버프 상점", "프리미엄", "병사 상점"])
+    panel_row(90, "20분간 게임속도 2배", "광고/온라인 기능: 서버리스 대체 설계 필요", "UI_SHOP_SPEED2")
+    panel_row(202, "20분간 게임속도 3배", "보석 100", "UI_SHOP_SPEED3")
+    panel_row(314, "20분간 병사공격력 증가", "보석 100", "UI_SHOP_STRONG_UP")
+    notice = null
+
+func menu_bar(title: String, icons: Array, captions: Array) -> void:
+    block(content, 0, 0, 640, 76, Color("1f2020"))
+    label(content, title, 12, 4, 190, 67, 21, Color("ffdc65"))
+    var button_width := 102.0
+    var first_x := 640.0 - icons.size() * (button_width + 3.0) - 4.0
+    for i in icons.size():
+        var x: float = first_x + i * (button_width + 3.0)
+        nine(content, "UI_COMMON_BUTTON_ON", x, 7, button_width, 62, 12)
+        sprite(content, icons[i], x + 5, 12, 35, 35)
+        label(content, captions[i], x + 2, 42, button_width - 4, 24, 13, Color("f2cf6d"), HORIZONTAL_ALIGNMENT_CENTER)
+
+func panel_row(y: float, title: String, subtitle: String, icon_name: String) -> void:
+    nine(content, "UI_LIST_BG", 0, y, 640, 106, 3)
+    sprite(content, icon_name, 15, y + 15, 76, 76)
+    label(content, title, 105, y + 10, 510, 39, 21, Color("dddddd"))
+    label(content, subtitle, 105, y + 51, 510, 35, 16, Color("999999"))
 
 func battle() -> void:
     var reward: int = LocalGameState.clear_stage()
