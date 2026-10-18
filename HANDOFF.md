@@ -20,6 +20,14 @@
 - 당시 `adb devices -l`에 연결 기기는 없었음. 따라서 원본 앱 실행 화면은 아직 확보하지 못함.
 - 다음 시도: 32비트 ARM 앱을 지원하는 Android 실기기 연결 후 `adb install-multiple`로 기본 APK, `config.armeabi_v7a.apk`, `config.ko.apk`, `config.xhdpi.apk` 등을 함께 설치. 또는 디스크 공간을 확보하고 32비트 지원 시스템 이미지로 별도 AVD를 준비. 기존 AVD 데이터는 임의로 삭제하지 말 것.
 
+### 실기기 실행 결과
+
+- 이후 Android 14, `arm64-v8a,armeabi-v7a,armeabi` 지원 실기기를 연결해 `adb install-multiple`로 기본 APK와 ARMv7/한국어/xhdpi 분할 APK를 함께 설치했고 성공함.
+- 원본 `AIRAppEntry` 실행 후 로딩, 튜토리얼, 메인 퀘스트 UI까지 확인함. `SKIP`으로 튜토리얼 대화를 넘겨 기준 화면을 확보함.
+- 비교용 캡처: `reference/endless_frontier_reference.png` (1080×2400). 상단 전투 화면, 검은 33px 재화 바, 퀘스트 서브메뉴, 다수의 110px 목록 행, 하단 6개 메뉴가 실제로 표시됨.
+- Android가 간헐적으로 “응답하지 않음”을 표시했지만 `대기` 후 게임 상태와 스테이지가 진행됐음. 원인 미확인. 캡처 시점에는 대화상자가 사라진 상태임.
+- 이제 이 실화면을 Godot `scripts/main_ui.gd`와 비교해 우선 보정할 것. 현재 Godot에는 퀘스트 행 이미지/텍스트/버튼 형태, 전투 배경·유닛, 서브메뉴 구성이 상당히 다름.
+
 ## 우선순위 규칙
 
 1. 원본과 구별하기 어려운 UI/그래픽 재현이 최우선.
