@@ -38,6 +38,34 @@ func run_checks() -> void:
     game.player.stage = 15
     assert(game.play_challenge(1))
     assert(not game.play_challenge(1))
+    game.player.gold = 5000
+    assert(game.forge_equipment())
+    var equipment_index: int = game.player.inventory.size() - 1
+    assert(game.equip_item(0, equipment_index))
+    var power_before: int = game.attack_power()
+    assert(game.upgrade_equipment(equipment_index))
+    assert(game.attack_power() > power_before)
+    game.player.shards = 10
+    assert(game.upgrade_relic(0))
+    assert(game.buy_pet())
+    assert(game.train_pet(0))
+    assert(game.select_pet(0))
+    assert(game.run_dungeon())
+    assert(game.player.dungeon_tickets == 2)
+    assert(game.climb_tower())
+    assert(game.player.tower_floor == 1)
+    assert(game.claim_achievement("stage10"))
+    assert(not game.claim_achievement("stage10"))
+    game.player.stage = 25
+    game.player.gold = 5000
+    game.player.shards = 10
+    assert(game.build_ship())
+    assert(game.upgrade_ship(0))
+    assert(game.explore_ship())
+    assert(not game.explore_ship())
+    assert(game.contribute_guild())
+    assert(game.run_guild_raid())
+    assert(not game.run_guild_raid())
     assert(not game.rebirth())
     game.player.stage = 50
     assert(game.rebirth())
@@ -46,5 +74,18 @@ func run_checks() -> void:
     game.player.enemy_hp = 1
     game._process(1.0)
     assert(game.player.stage == 2 and game.player.enemy_hp > 0)
+    game.player.last_seen_unix = int(Time.get_unix_time_from_system()) - 2
+    game.player.enemy_hp = 1
+    var offline: Dictionary = game.settle_offline()
+    assert(offline.stages >= 1)
+    game.player.auto_battle = false
+    game.player.last_seen_unix = int(Time.get_unix_time_from_system()) - 86400
+    assert(game.settle_offline().seconds == game.MAX_OFFLINE_SECONDS)
+    game.player.dungeon_tickets = 0
+    game.player.dungeon_last_refill = int(Time.get_unix_time_from_system()) - 1200
+    assert(game._refill_dungeon(int(Time.get_unix_time_from_system())))
+    assert(game.player.dungeon_tickets == 2)
+    assert(not game.equip_item(0, 999))
+    assert(not game.upgrade_relic(999))
     print("gameplay_smoke_pass")
     quit()

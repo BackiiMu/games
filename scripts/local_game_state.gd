@@ -8,6 +8,7 @@ const QUEST_REWARDS := [20, 156, 270, 436, 1100, 2350, 5000]
 const UNIT_COSTS := [200, 500, 1200, 3000]
 const RELIC_COST := 750
 const BATTLE_INTERVAL := 1.0
+const MAX_OFFLINE_SECONDS := 3600
 
 var player: Dictionary = _default_player()
 var battle_elapsed := 0.0
@@ -20,6 +21,12 @@ func _default_player() -> Dictionary:
         "stage": 1, "unit_level": 1, "total_kills": 0,
         "enemy_hp": 12, "hero_hp": 100,
         "units": [1], "relics": [], "inventory": [],
+        "equipment": {}, "pets": [], "active_pet": -1,
+        "ships": [], "active_ship": -1, "ship_explore_next": 0,
+        "guild": {"level": 1, "xp": 0, "raid_next": 0},
+        "relic_levels": {}, "shards": 0,
+        "tower_floor": 0, "dungeon_tickets": 3, "dungeon_last_refill": 0,
+        "achievements": {}, "last_seen_unix": 0,
         "quest_end": {}, "quest_levels": [1, 0, 0, 0, 0, 0, 0],
         "auto_battle": false, "speed_until": 0, "speed_tier": 2,
         "damage_until": 0, "challenge_next": {},
@@ -28,6 +35,7 @@ func _default_player() -> Dictionary:
 
 func _ready() -> void:
     load_state()
+    settle_offline()
 
 func _process(delta: float) -> void:
     if player.auto_battle:
@@ -76,12 +84,28 @@ func load_state() -> void:
             player.quest_levels = [1, 0, 0, 0, 0, 0, 0]
         if not player.challenge_next is Dictionary:
             player.challenge_next = {}
+        if not player.equipment is Dictionary:
+            player.equipment = {}
+        if not player.pets is Array:
+            player.pets = []
+        if not player.ships is Array:
+            player.ships = []
+        if not player.guild is Dictionary:
+            player.guild = {"level": 1, "xp": 0, "raid_next": 0}
+        for key in ["level", "xp", "raid_next"]:
+            if not player.guild.has(key):
+                player.guild[key] = 1 if key == "level" else 0
+        if not player.achievements is Dictionary:
+            player.achievements = {}
+        if not player.relic_levels is Dictionary:
+            player.relic_levels = {}
         player.enemy_hp = maxi(1, int(player.enemy_hp))
         player.hero_hp = clampi(int(player.hero_hp), 1, 100)
 
 func save_state() -> void:
     if not persist_enabled:
         return
+    player.last_seen_unix = int(Time.get_unix_time_from_system())
     var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
     if file != null:
         file.store_string(JSON.stringify(player))
@@ -89,6 +113,41 @@ func save_state() -> void:
 func _changed() -> void:
     save_state()
     state_changed.emit()
+
+func settle_offline(now_unix: int = -1) -> Dictionary:
+    var now := now_unix if now_unix >= 0 else int(Time.get_unix_time_from_system())
+    var elapsed := clampi(now - int(player.last_seen_unix), 0, MAX_OFFLINE_SECONDS) if int(player.last_seen_unix) > 0 else 0
+    var stages_before := int(player.stage)
+    var gold_before := int(player.gold)
+    var changed := false
+    if player.auto_battle and elapsed > 0:
+        var ticks := mini(int(elapsed * speed_multiplier()), MAX_OFFLINE_SECONDS * 3)
+        for i in ticks:
+            _battle_step_internal()
+        changed = true
+    for key in player.quest_end.keys():
+        if int(player.quest_end[key]) <= now:
+            player.gold += quest_reward(int(key))
+            player.quest_end.erase(key)
+            changed = true
+    if _refill_dungeon(now):
+        changed = true
+    if changed:
+        _changed()
+    return {"seconds": elapsed, "stages": int(player.stage) - stages_before, "gold": int(player.gold) - gold_before}
+
+func _refill_dungeon(now: int) -> bool:
+    var previous := int(player.dungeon_tickets)
+    var last := int(player.dungeon_last_refill)
+    if last <= 0:
+        player.dungeon_last_refill = now
+        return false
+    var gained := maxi(0, (now - last) / 600)
+    if gained <= 0:
+        return false
+    player.dungeon_tickets = mini(3, previous + gained)
+    player.dungeon_last_refill = last + gained * 600
+    return int(player.dungeon_tickets) != previous
 
 func is_speed_active() -> bool:
     return int(player.speed_until) > Time.get_unix_time_from_system()
@@ -109,25 +168,48 @@ func attack_power() -> int:
     var power := 0
     for level in player.units:
         power += 4 + int(level) * 2
-    power += player.relics.size() * 3
+    for i in player.relics.size():
+        power += 2 + int(player.relic_levels.get(str(i), 1))
+    for key in player.equipment.keys():
+        var item_index := int(player.equipment[key])
+        if item_index >= 0 and item_index < player.inventory.size():
+            var item: Dictionary = player.inventory[item_index]
+            if item.get("kind", "") == "equipment":
+                power += 2 * int(item.get("level", 1))
+    var pet_index := int(player.active_pet)
+    if pet_index >= 0 and pet_index < player.pets.size():
+        power += 3 * int(player.pets[pet_index].get("level", 1))
+    var ship_index := int(player.active_ship)
+    if ship_index >= 0 and ship_index < player.ships.size():
+        power += 4 * int(player.ships[ship_index].get("level", 1))
+    power += maxi(0, int(player.guild.level) - 1) * 2
     if int(player.damage_until) > Time.get_unix_time_from_system():
         power = int(power * 1.5)
     return maxi(1, power)
 
 func battle_step() -> int:
+    var damage := _battle_step_internal()
+    _changed()
+    return damage
+
+func _battle_step_internal() -> int:
     var damage := attack_power()
     player.enemy_hp = maxi(0, int(player.enemy_hp) - damage)
     if int(player.enemy_hp) <= 0:
-        clear_stage()
+        _clear_stage_internal()
     else:
         player.hero_hp = maxi(0, int(player.hero_hp) - maxi(1, int(player.stage) / 5))
         if int(player.hero_hp) <= 0:
             player.hero_hp = 100
             player.enemy_hp = 10 + int(player.stage) * 2
-        _changed()
     return damage
 
 func clear_stage() -> int:
+    var reward := _clear_stage_internal()
+    _changed()
+    return reward
+
+func _clear_stage_internal() -> int:
     var reward := reward_for_stage()
     player.gold += reward
     player.stage += 1
@@ -138,7 +220,6 @@ func clear_stage() -> int:
         player.medals += 1
     if int(player.stage) % 5 == 0:
         player.gems += 10
-    _changed()
     return reward
 
 func set_auto_battle(enabled: bool) -> void:
@@ -211,6 +292,172 @@ func buy_relic() -> bool:
     var relic_id: int = player.relics.size() % 8 + 1
     player.relics.append(relic_id)
     player.inventory.append({"kind": "relic", "id": relic_id})
+    _changed()
+    return true
+
+func forge_equipment() -> bool:
+    if int(player.gold) < 400:
+        return false
+    player.gold -= 400
+    var item_id: int = player.inventory.size() + 1
+    player.inventory.append({"kind": "equipment", "id": item_id, "level": 1})
+    _changed()
+    return true
+
+func equip_item(unit_index: int, item_index: int) -> bool:
+    if unit_index < 0 or unit_index >= player.units.size():
+        return false
+    if item_index < 0 or item_index >= player.inventory.size():
+        return false
+    if player.inventory[item_index].get("kind", "") != "equipment":
+        return false
+    player.equipment[str(unit_index)] = item_index
+    _changed()
+    return true
+
+func upgrade_equipment(item_index: int) -> bool:
+    if item_index < 0 or item_index >= player.inventory.size():
+        return false
+    var item: Dictionary = player.inventory[item_index]
+    if item.get("kind", "") != "equipment":
+        return false
+    var cost := 150 * int(item.get("level", 1))
+    if int(player.gold) < cost:
+        return false
+    player.gold -= cost
+    item.level = int(item.get("level", 1)) + 1
+    _changed()
+    return true
+
+func upgrade_relic(relic_index: int) -> bool:
+    if relic_index < 0 or relic_index >= player.relics.size():
+        return false
+    var key := str(relic_index)
+    var level := int(player.relic_levels.get(key, 1))
+    if int(player.shards) < level * 5:
+        return false
+    player.shards -= level * 5
+    player.relic_levels[key] = level + 1
+    _changed()
+    return true
+
+func buy_pet() -> bool:
+    if player.pets.size() >= 3 or int(player.gold) < 600:
+        return false
+    player.gold -= 600
+    player.pets.append({"id": player.pets.size() + 1, "level": 1})
+    if int(player.active_pet) < 0:
+        player.active_pet = 0
+    _changed()
+    return true
+
+func train_pet(index: int) -> bool:
+    if index < 0 or index >= player.pets.size():
+        return false
+    var pet: Dictionary = player.pets[index]
+    var cost := int(pet.get("level", 1)) * 250
+    if int(player.gold) < cost:
+        return false
+    player.gold -= cost
+    pet.level = int(pet.get("level", 1)) + 1
+    _changed()
+    return true
+
+func select_pet(index: int) -> bool:
+    if index < 0 or index >= player.pets.size():
+        return false
+    player.active_pet = index
+    _changed()
+    return true
+
+func build_ship() -> bool:
+    if int(player.stage) < 20 or player.ships.size() >= 2:
+        return false
+    if int(player.gold) < 1200 or int(player.shards) < 2:
+        return false
+    player.gold -= 1200
+    player.shards -= 2
+    player.ships.append({"id": player.ships.size() + 1, "level": 1})
+    if int(player.active_ship) < 0:
+        player.active_ship = 0
+    _changed()
+    return true
+
+func upgrade_ship(index: int) -> bool:
+    if index < 0 or index >= player.ships.size():
+        return false
+    var ship: Dictionary = player.ships[index]
+    var cost := 500 * int(ship.get("level", 1))
+    if int(player.gold) < cost:
+        return false
+    player.gold -= cost
+    ship.level = int(ship.get("level", 1)) + 1
+    _changed()
+    return true
+
+func explore_ship() -> bool:
+    if int(player.active_ship) < 0 or int(player.ship_explore_next) > Time.get_unix_time_from_system():
+        return false
+    player.ship_explore_next = int(Time.get_unix_time_from_system()) + 600
+    player.gold += 400 * int(player.ships[int(player.active_ship)].get("level", 1))
+    player.shards += 1
+    _changed()
+    return true
+
+func contribute_guild() -> bool:
+    if int(player.gold) < 300:
+        return false
+    player.gold -= 300
+    player.guild.xp += 1
+    if int(player.guild.xp) >= int(player.guild.level) * 3:
+        player.guild.xp = 0
+        player.guild.level += 1
+    _changed()
+    return true
+
+func run_guild_raid() -> bool:
+    if int(player.stage) < 25 or int(player.guild.raid_next) > Time.get_unix_time_from_system():
+        return false
+    player.guild.raid_next = int(Time.get_unix_time_from_system()) + 300
+    player.medals += 3 * int(player.guild.level)
+    player.shards += 2
+    _changed()
+    return true
+
+func run_dungeon() -> bool:
+    _refill_dungeon(int(Time.get_unix_time_from_system()))
+    if int(player.stage) < 10 or int(player.dungeon_tickets) <= 0:
+        return false
+    player.dungeon_tickets -= 1
+    player.shards += 2 + int(player.stage) / 20
+    player.gold += 300
+    _changed()
+    return true
+
+func climb_tower() -> bool:
+    var floor := int(player.tower_floor) + 1
+    if int(player.stage) < floor * 5:
+        return false
+    player.tower_floor = floor
+    player.gems += 5
+    player.gold += floor * 100
+    _changed()
+    return true
+
+func claim_achievement(kind: String) -> bool:
+    if player.achievements.has(kind):
+        return false
+    var reached := false
+    if kind == "stage10":
+        reached = int(player.stage) >= 10
+    elif kind == "kills100":
+        reached = int(player.total_kills) >= 100
+    elif kind == "tower5":
+        reached = int(player.tower_floor) >= 5
+    if not reached:
+        return false
+    player.achievements[kind] = true
+    player.gems += 20
     _changed()
     return true
 
