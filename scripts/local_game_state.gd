@@ -7,7 +7,7 @@ const QUEST_SECONDS := [1, 3, 5, 10, 30, 60, 120]
 const QUEST_REWARDS := [20, 156, 270, 436, 1100, 2350, 5000]
 const UNIT_COSTS := [200, 500, 1200, 3000]
 const RELIC_COST := 750
-const BATTLE_INTERVAL := 3.0
+const BATTLE_INTERVAL := 1.0
 
 var player: Dictionary = _default_player()
 var battle_elapsed := 0.0
@@ -18,6 +18,7 @@ func _default_player() -> Dictionary:
     return {
         "nickname": "LocalPlayer", "gold": 1000, "gems": 0, "medals": 0,
         "stage": 1, "unit_level": 1, "total_kills": 0,
+        "enemy_hp": 12, "hero_hp": 100,
         "units": [1], "relics": [], "inventory": [],
         "quest_end": {}, "quest_levels": [1, 0, 0, 0, 0, 0, 0],
         "auto_battle": false, "speed_until": 0, "speed_tier": 2,
@@ -34,7 +35,7 @@ func _process(delta: float) -> void:
         var interval: float = BATTLE_INTERVAL / speed_multiplier()
         if battle_elapsed >= interval:
             battle_elapsed -= interval
-            clear_stage()
+            battle_step()
     var completed := false
     var now := Time.get_unix_time_from_system()
     for key in player.quest_end.keys():
@@ -61,6 +62,8 @@ func load_state() -> void:
         var defaults := _default_player()
         defaults.merge(parsed, true)
         player = defaults
+        if not parsed.has("enemy_hp"):
+            player.enemy_hp = 10 + int(player.stage) * 2
         if not player.units is Array or player.units.is_empty():
             player.units = [maxi(1, int(player.unit_level))]
         if not player.relics is Array:
@@ -73,6 +76,8 @@ func load_state() -> void:
             player.quest_levels = [1, 0, 0, 0, 0, 0, 0]
         if not player.challenge_next is Dictionary:
             player.challenge_next = {}
+        player.enemy_hp = maxi(1, int(player.enemy_hp))
+        player.hero_hp = clampi(int(player.hero_hp), 1, 100)
 
 func save_state() -> void:
     if not persist_enabled:
@@ -100,11 +105,35 @@ func reward_for_stage() -> int:
         amount = int(amount * 1.5)
     return amount
 
+func attack_power() -> int:
+    var power := 0
+    for level in player.units:
+        power += 4 + int(level) * 2
+    power += player.relics.size() * 3
+    if int(player.damage_until) > Time.get_unix_time_from_system():
+        power = int(power * 1.5)
+    return maxi(1, power)
+
+func battle_step() -> int:
+    var damage := attack_power()
+    player.enemy_hp = maxi(0, int(player.enemy_hp) - damage)
+    if int(player.enemy_hp) <= 0:
+        clear_stage()
+    else:
+        player.hero_hp = maxi(0, int(player.hero_hp) - maxi(1, int(player.stage) / 5))
+        if int(player.hero_hp) <= 0:
+            player.hero_hp = 100
+            player.enemy_hp = 10 + int(player.stage) * 2
+        _changed()
+    return damage
+
 func clear_stage() -> int:
     var reward := reward_for_stage()
     player.gold += reward
     player.stage += 1
     player.total_kills += 10
+    player.enemy_hp = 10 + int(player.stage) * 2
+    player.hero_hp = mini(100, int(player.hero_hp) + 5)
     if int(player.stage) % 10 == 0:
         player.medals += 1
     if int(player.stage) % 5 == 0:
@@ -250,6 +279,8 @@ func rebirth() -> bool:
     player.rebirths += 1
     player.stage = 1
     player.gold = 1000
+    player.enemy_hp = 12
+    player.hero_hp = 100
     player.quest_end.clear()
     player.auto_battle = false
     _changed()

@@ -212,7 +212,9 @@ func build_subview() -> void:
         0:
             title = ["퀘스트 스킬", "퀘스트 보상"][mini(subview, 1)]
             icon = "BTN_SKILL_CHANGE2" if subview == 0 else "UI_MOVIE_SMALL"
-            rows = ["퀘스트 목록", "스킬 및 보상 정보", "로컬 모드에서는 온라인 보상이 비활성화됩니다"]
+            rows = ["공격력 %d" % LocalGameState.attack_power(),
+                "적 체력 %d / 아군 체력 %d" % [LocalGameState.player.enemy_hp, LocalGameState.player.hero_hp],
+                "자동 전투: 켜짐" if LocalGameState.player.auto_battle else "자동 전투: 꺼짐"]
         1:
             title = ["병사구입", "시간의 상점", "일괄 강화", "병사 장비", "병사 상세"][mini(subview, 4)]
             icon = ["BTN_BUY_UNIT_SHOP", "BTN_TIME_SHOP", "BTN_ALL_LEVELUP", "UNIT_MENU_4", "UNIT_MENU_1"][mini(subview, 4)]

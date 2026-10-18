@@ -43,7 +43,8 @@ func run_checks() -> void:
     assert(game.rebirth())
     assert(game.player.stage == 1 and game.player.rebirths == 1)
     game.set_auto_battle(true)
-    game._process(4.0)
-    assert(game.player.stage >= 2)
+    game.player.enemy_hp = 1
+    game._process(1.0)
+    assert(game.player.stage == 2 and game.player.enemy_hp > 0)
     print("gameplay_smoke_pass")
     quit()
