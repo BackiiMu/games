@@ -1,4 +1,5 @@
 .godot/
+*.import
 *.log
 reference/EF.xml
 reference/EF.swf

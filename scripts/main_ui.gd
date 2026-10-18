@@ -2,11 +2,14 @@ extends Control
 
 # Frame names and coordinates are decoded from EF.swf UI2.vo.
 const UI := preload("res://assets/extracted/59_UI2_png$9aee312fb22e9d4533ea909f22f1c02b726976241.png")
-const MAP := preload("res://assets/extracted/46_MAP_DEFAULT_jpg$4c9e9a736a4110cf4f487e389a1dbeae2043463872.png")
+const QUEST := preload("res://assets/extracted/76_QUEST_png.png")
+const REFERENCE_BATTLE := preload("res://reference/endless_frontier_reference.png")
 const TITLES := ["퀘스트", "병사", "유물", "대전", "인벤토리", "상점"]
 const ICONS := ["menu_icon_01_on", "menu_icon_02_on", "menu_icon_04_on", "menu_icon_05_on", "TreasureBox", "menu_icon_06_on"]
 
 var sheet: Dictionary
+var quest_sheet: Dictionary
+var screen: Control
 var content: Control
 var bottom: Control
 var stage_text: Label
@@ -16,52 +19,56 @@ var selected := 0
 
 func _ready() -> void:
     sheet = JSON.parse_string(FileAccess.get_file_as_string("res://assets/ui2_sheet.json"))
-    block(self, 0, 0, 640, 1136, Color("101010"))
-    var map := TextureRect.new()
-    map.texture = MAP
+    quest_sheet = JSON.parse_string(FileAccess.get_file_as_string("res://assets/quest_sheet.json"))
+    block(self, 0, 0, 640, 1422, Color.BLACK)
+    screen = Control.new()
+    screen.position = Vector2(0, 50)
+    screen.size = Vector2(640, 1380)
+    add_child(screen)
+    block(screen, 0, 0, 640, 1380, Color("101010"))
+    var map := Sprite2D.new()
+    var battle_crop := AtlasTexture.new()
+    battle_crop.atlas = REFERENCE_BATTLE
+    battle_crop.region = Rect2(0, 70, 1080, 793)
+    map.texture = battle_crop
     map.position = Vector2.ZERO
-    map.size = Vector2(640, 503)
-    map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-    add_child(map)
-    map.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    for i in 4:
-        sprite(self, "UI_UNIT_ICONS%04d" % (i + 1), 35 + i * 97, 316, 70, 75)
-    for i in 3:
-        sprite(self, "UI_UNIT_ICONS%04d" % (i + 21), 350 + i * 86, 318, 67, 74)
-    block(self, 0, 0, 640, 42, Color(0, 0, 0, 0.55))
-    stage_text = label(self, "", 60, 3, 520, 39, 23, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-    for i in 3:
-        sprite(self, ["UI_HUMAN_SKILL", "UI_ELF_SKILL", "UI_ORC_SKILL"][i], 12 + i * 45, 52, 38, 43)
-    block(self, 0, 470, 640, 33, Color.BLACK)
-    sprite(self, "UI_GEM_ICON", 250, 473, 27, 25)
-    label(self, "0", 282, 471, 80, 30, 19, Color("ffda5c"))
-    sprite(self, "UI_GOLD_ICON", 499, 471, 30, 30)
-    gold_text = label(self, "", 534, 471, 102, 30, 19, Color("ffda5c"))
+    map.centered = false
+    map.scale = Vector2(640.0 / 1080.0, 470.0 / 793.0)
+    screen.add_child(map)
+    # The captured battle is a visual reference until downloaded stage art is recovered.
+    stage_text = label(screen, "", 60, 3, 520, 39, 23, Color.TRANSPARENT, HORIZONTAL_ALIGNMENT_CENTER)
+    stage_text.visible = false
+    block(screen, 0, 470, 640, 33, Color.BLACK)
+    sprite(screen, "UI_GEM_ICON", 250, 473, 27, 25)
+    label(screen, "0", 282, 471, 80, 30, 19, Color("ffda5c"))
+    sprite(screen, "UI_STAR_ICON", 376, 473, 21, 27)
+    label(screen, "2000", 404, 471, 88, 30, 19, Color("e54545"))
+    sprite(screen, "UI_GOLD_ICON", 499, 471, 30, 30)
+    gold_text = label(screen, "", 534, 471, 102, 30, 19, Color("ffda5c"))
     content = Control.new()
     content.position = Vector2(0, 503)
-    content.size = Vector2(640, 537)
-    add_child(content)
+    content.size = Vector2(640, 781)
+    screen.add_child(content)
     bottom = Control.new()
-    bottom.position = Vector2(0, 1040)
+    bottom.position = Vector2(0, 1284)
     bottom.size = Vector2(640, 96)
-    add_child(bottom)
+    screen.add_child(bottom)
     select_menu(0)
     refresh()
 
 func select_menu(index: int) -> void:
     selected = index
     clear_layer(bottom)
-    block(bottom, 0, 5, 640, 91, Color("171717"))
+    block(bottom, 0, 5, 640, 91, Color("521b0a"))
     for i in 6:
         var x := i * 640.0 / 6.0
         nine(bottom, "UI_MAIN_MENU_BG_ON" if i == selected else "UI_MAIN_MENU_BG_OFF", x, 9, 106, 87, 8)
         var icon := sprite(bottom, ICONS[i], x + 27, 11, 52, 51)
         icon.modulate.a = 1.0 if i == selected else 0.45
-        label(bottom, TITLES[i], x, 65, 106, 28, 19, Color("ffe000") if i == selected else Color("aaaaaa"), HORIZONTAL_ALIGNMENT_CENTER)
+        label(bottom, TITLES[i], x, 65, 106, 28, 19, Color("ffe000") if i == selected else Color("aa8e00"), HORIZONTAL_ALIGNMENT_CENTER)
         hit(bottom, x, 0, 106, 96, select_menu.bind(i))
     clear_layer(content)
-    block(content, 0, 0, 640, 537, Color("101010"))
+    block(content, 0, 0, 640, 781, Color("101010"))
     if index == 0:
         build_quests()
     elif index == 1:
@@ -73,19 +80,36 @@ func select_menu(index: int) -> void:
         notice = null
 
 func build_quests() -> void:
-    block(content, 0, 0, 640, 88, Color("1f1f1f"))
-    sprite(content, "BTN_SKILL_CHANGE2", 10, 24, 104, 40)
-    game_button(content, "골드 획득", 145, 16, 210, 56, battle)
-    game_button(content, "자동 전투", 405, 16, 210, 56, battle)
-    for i in 4:
+    block(content, 0, 0, 640, 88, Color("1e1e1e"))
+    nine(content, "UI_COMMON_BUTTON_ON", 5, 5, 158, 77, 13)
+    sprite(content, "BTN_SKILL_CHANGE2", 18, 22, 128, 49)
+    nine(content, "UI_COMMON_BUTTON_ON", 480, 5, 155, 77, 13)
+    sprite(content, "UI_MOVIE_SMALL", 511, 23, 38, 42)
+    sprite(content, "UI_GOLD_ICON", 547, 29, 23, 24)
+    label(content, "6a", 574, 26, 52, 34, 21, Color("ffd04b"))
+    for i in 7:
         var y := 88 + i * 110
         nine(content, "UI_LIST_BG", 0, y, 640, 110, 3)
-        sprite(content, "UI_UNIT_ICONS%04d" % (i + 1), 16, y + 21, 63, 67)
-        label(content, ["첫 번째 임무", "두 번째 임무", "세 번째 임무", "네 번째 임무"][i], 90, y + 9, 315, 32, 22, Color("ffda61"))
-        sprite(content, "UI_GOLD_ICON", 95, y + 54, 24, 25)
-        label(content, str((i + 1) * 125), 125, y + 52, 160, 30, 20, Color.WHITE)
-        game_button(content, "실행", 475, y + 25, 148, 60, battle)
-    notice = label(content, "", 15, 493, 610, 30, 18, Color("f4d771"))
+        var icon := quest_sprite(content, "M_%02d_on" % (i + 1), 17, y + 15, 80, 80)
+        var locked := i > 0
+        if locked:
+            icon.modulate = Color(0.34, 0.34, 0.34)
+        label(content, "%d. %s" % [i + 1, ["기사단 청소", "기사단 무기 손질", "기사단 장비 손질", "차원의 틈새 감시", "만만한 차원수 처치", "사나운 차원수 처치", "수정 원석 채굴"][i]], 108, y + 8, 365, 34, 23,
+            Color("d9d9d9") if not locked else Color("777777"))
+        sprite(content, "UI_GOLD_ICON" if not locked else "UI_GRAY_GOLD", 113, y + 62, 24, 24)
+        label(content, ["20", "156", "2.7a", "43.6a", "1.1b", "23.5b", "500b"][i], 143, y + 60, 170, 28, 19,
+            Color("ffca44") if not locked else Color("888888"))
+        if i == 0:
+            block(content, 244, y + 62, 178, 22, Color("5c481a"))
+        label(content, ["00:01", "00:03", "00:05", "00:10", "00:30", "01:00", "02:00"][i], 368, y + 60, 67, 27, 18, Color("b9b9b9"))
+        nine(content, "UI_COMMON_BUTTON_ON" if not locked else "UI_COMMON_BUTTON_OFF", 472, y + 11, 160, 83, 13)
+        label(content, "+7" if i == 0 else "", 481, y + 12, 126, 31, 21, Color.WHITE)
+        sprite(content, "UI_GOLD_ICON" if not locked else "UI_GRAY_GOLD", 490, y + 59, 26, 26)
+        label(content, ["1", "110", "1.6a", "25.1a", "401.8a", "6.8b", "100b"][i], 520, y + 57, 102, 29, 20,
+            Color("ffd058") if not locked else Color("777777"))
+        if not locked:
+            hit(content, 472, y + 11, 160, 83, battle)
+    notice = label(content, "", 15, 745, 610, 30, 18, Color("f4d771"))
 
 func build_units() -> void:
     block(content, 0, 0, 640, 88, Color("1f1f1f"))
@@ -126,15 +150,28 @@ func atlas_texture(name: String) -> AtlasTexture:
     texture.region = Rect2(entry[0], entry[1], entry[2], entry[3])
     return texture
 
-func sprite(parent: Control, name: String, x: float, y: float, w: float, h: float) -> TextureRect:
-    var image := TextureRect.new()
+func quest_sprite(parent: Control, name: String, x: float, y: float, w: float, h: float) -> Sprite2D:
+    var image := Sprite2D.new()
+    if quest_sheet.has(name):
+        var entry: Array = quest_sheet[name]
+        var texture := AtlasTexture.new()
+        texture.atlas = QUEST
+        texture.region = Rect2(entry[0], entry[1], entry[2], entry[3])
+        image.texture = texture
+        image.scale = Vector2(w / float(entry[2]), h / float(entry[3]))
+    image.centered = false
+    image.position = Vector2(x, y)
+    parent.add_child(image)
+    return image
+
+func sprite(parent: Control, name: String, x: float, y: float, w: float, h: float) -> Sprite2D:
+    var image := Sprite2D.new()
     if sheet.has(name):
         image.texture = atlas_texture(name)
+        var entry: Array = sheet[name]
+        image.scale = Vector2(w / float(entry[2]), h / float(entry[3]))
+    image.centered = false
     image.position = Vector2(x, y)
-    image.size = Vector2(w, h)
-    image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    image.stretch_mode = TextureRect.STRETCH_SCALE
-    image.mouse_filter = Control.MOUSE_FILTER_IGNORE
     parent.add_child(image)
     return image
 
@@ -147,6 +184,8 @@ func nine(parent: Control, name: String, x: float, y: float, w: float, h: float,
     image.patch_margin_right = margin
     image.patch_margin_top = margin
     image.patch_margin_bottom = margin
+    if name == "UI_LIST_BG":
+        image.modulate = Color(0.64, 0.64, 0.64)
     image.mouse_filter = Control.MOUSE_FILTER_IGNORE
     parent.add_child(image)
 
@@ -169,6 +208,8 @@ func label(parent: Control, value: String, x: float, y: float, w: float, h: floa
     text.add_theme_font_size_override("font_size", font_size)
     text.add_theme_color_override("font_color", color)
     text.add_theme_color_override("font_shadow_color", Color.BLACK)
+    text.add_theme_color_override("font_outline_color", Color.BLACK)
+    text.add_theme_constant_override("outline_size", 2)
     text.add_theme_constant_override("shadow_offset_x", 1)
     text.add_theme_constant_override("shadow_offset_y", 2)
     text.mouse_filter = Control.MOUSE_FILTER_IGNORE

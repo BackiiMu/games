@@ -9,6 +9,8 @@
 - 원본 배경 이미지와 추출 리소스를 Godot에 연결함.
 - `UI2.vo`의 AMF3 좌표를 읽어 UI2 텍스처 시트의 프레임 767개를 `assets/ui2_sheet.json`으로 복원함.
 - `scripts/main_ui.gd`가 현재 메인 씬. 원본 코드 기준 전투/콘텐츠/하단 메뉴의 640px 좌표계를 적용했고, 원본 프레임으로 하단 6개 메뉴, 퀘스트/병사 행, 재화 아이콘을 구성함.
+- 2026-10-19 원본 실기기 캡처를 기준으로 뷰포트를 640×1422로 맞추고 상단 50px 검은 여백, 470px 전투 영역, 33px 재화 바, 88px 퀘스트 서브메뉴, 110px 간격의 7개 퀘스트 행, 6개 하단 메뉴를 실렌더로 확인함. `QUEST.vo`의 좌표를 복원한 `assets/quest_sheet.json`으로 원본 퀘스트 아이콘을 사용함.
+- Godot 실렌더 `reference/godot_current.png`는 `tools/render_preview.gd`로 생성. 원본 캡처 `reference/endless_frontier_reference.png`와 비교할 것. 현재 전투 영역은 원본 캡처의 정적 크롭이므로 실제 전투 재현은 아님. 글꼴/버튼 스타일 및 퀘스트 외 메뉴도 아직 차이가 큼.
 - 로컬 저장, 스테이지 보상, 골드, 유닛 강화, 자동 전투의 기본 동작 구현. 상점 화면은 아직 자리 표시 상태.
 
 ## 원본 APK 실행 조사 (2026-10-19)
@@ -26,7 +28,7 @@
 - 원본 `AIRAppEntry` 실행 후 로딩, 튜토리얼, 메인 퀘스트 UI까지 확인함. `SKIP`으로 튜토리얼 대화를 넘겨 기준 화면을 확보함.
 - 비교용 캡처: `reference/endless_frontier_reference.png` (1080×2400). 상단 전투 화면, 검은 33px 재화 바, 퀘스트 서브메뉴, 다수의 110px 목록 행, 하단 6개 메뉴가 실제로 표시됨.
 - Android가 간헐적으로 “응답하지 않음”을 표시했지만 `대기` 후 게임 상태와 스테이지가 진행됐음. 원인 미확인. 캡처 시점에는 대화상자가 사라진 상태임.
-- 이제 이 실화면을 Godot `scripts/main_ui.gd`와 비교해 우선 보정할 것. 현재 Godot에는 퀘스트 행 이미지/텍스트/버튼 형태, 전투 배경·유닛, 서브메뉴 구성이 상당히 다름.
+- 실화면을 Godot 실렌더와 비교해 메인 퀘스트 화면 구조와 아이콘을 보정함. 정적 전투 크롭과 버튼/글꼴의 차이는 아직 남음.
 
 ## 우선순위 규칙
 
@@ -47,7 +49,9 @@
 - `scripts/main_ui.gd`: 현재 실행되는 UI와 입력 처리
 - `scripts/main.gd`: 첫 프로토타입, 현재 씬에서는 사용하지 않음
 - `assets/ui2_sheet.json`: SWF UI2 시트의 이름별 프레임 좌표
+- `assets/quest_sheet.json`: SWF QUEST 시트의 이름별 프레임 좌표
 - `tools/read_amf_sheet.py`: `UI2.vo` AMF3 좌표 파서
+- `tools/render_preview.gd`: Godot 메인 씬 실렌더 캡처 (`reference/godot_current.png`)
 - `scripts/local_game_state.gd`: 서버리스 저장/게임 상태
 - `assets/extracted/`: EF.swf에서 추출한 원본 이미지 리소스
 - `reference/EF.swf`: 원본 SWF
@@ -57,10 +61,10 @@
 
 ## 다음 작업
 
-1. 원본 앱 5.5.5의 실화면 캡처를 확보해 640px 기준 Godot 화면과 나란히 비교한다. 현재는 AS3의 배치 수치가 근거이며 실화면 비교는 미완료.
-2. `QuestSubMenu`, `QuestItemRenderer`, `UnitView`, `TopMenu`의 세부 요소와 폰트/상태를 원본 화면에 맞게 보정한다.
+1. `reference/endless_frontier_reference.png`와 `reference/godot_current.png`를 나란히 비교하며 `QuestSubMenu`, `QuestItemRenderer`, `UnitView`, `TopMenu`의 폰트/버튼/상태를 더 보정한다.
+2. 정적 전투 크롭을 원본 시트의 배경·유닛·효과 레이어로 대체해 스테이지 UI와 로컬 게임 상태가 시각적으로 일치하게 한다.
 3. `UNIT_ITEM`, `PET_SHEET`, `TREASURE_UI` 시트의 `.vo`도 같은 파서로 복원해 관련 화면에 적용한다.
 4. 유물·대전·인벤토리·상점은 현재 화면 제목만 있는 자리 표시 상태. 각 화면을 원본 UI로 구현한다.
 5. 이후 로컬 상점/보상/강화 흐름을 원본 화면 전환과 맞춘다.
 
-현재 UI는 원본 리소스와 배치 코드를 반영한 중간 단계이며 최종 일치 검증은 아직 진행 중이다.
+현재 UI는 원본 리소스와 실기기 캡처를 반영한 중간 단계이며 최종 일치 검증은 아직 진행 중이다.
