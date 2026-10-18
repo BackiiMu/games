@@ -60,6 +60,7 @@
 - `REBUILD_RULES.md`: 작업 규칙
 - `SCREEN_PREP.md`: 하단 6개 화면의 원본 클래스, 현재 범위, 리소스 및 후속 작업
 - `assets/source_screen_index.json`: 디컴파일된 View/SubMenu/Popup 클래스 288개 목록과 Godot 진행 상태
+- `GAMEPLAY_STATUS.md`: 서버리스 로컬 게임 루프와 미구현 기능의 정확한 범위
 
 ## 다음 작업
 

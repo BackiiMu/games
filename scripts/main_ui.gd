@@ -17,6 +17,7 @@ var gold_text: Label
 var notice: Label
 var selected := 0
 var subview := -1
+var feedback := ""
 
 func _ready() -> void:
     sheet = JSON.parse_string(FileAccess.get_file_as_string("res://assets/ui2_sheet.json"))
@@ -37,13 +38,16 @@ func _ready() -> void:
     map.scale = Vector2(640.0 / 1080.0, 470.0 / 793.0)
     screen.add_child(map)
     # The captured battle is a visual reference until downloaded stage art is recovered.
-    stage_text = label(screen, "", 60, 3, 520, 39, 23, Color.TRANSPARENT, HORIZONTAL_ALIGNMENT_CENTER)
-    stage_text.visible = false
+    block(screen, 263, 3, 113, 32, Color("151515"))
+    stage_text = label(screen, "", 263, 3, 113, 32, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+    hit(screen, 80, 4, 55, 48, toggle_auto_battle)
     block(screen, 0, 470, 640, 33, Color.BLACK)
     sprite(screen, "UI_GEM_ICON", 250, 473, 27, 25)
-    label(screen, "0", 282, 471, 80, 30, 19, Color("ffda5c"))
+    var gem_text := label(screen, "0", 282, 471, 80, 30, 19, Color("ffda5c"))
+    gem_text.name = "GemText"
     sprite(screen, "UI_STAR_ICON", 376, 473, 21, 27)
-    label(screen, "2000", 404, 471, 88, 30, 19, Color("e54545"))
+    var medal_text := label(screen, "0", 404, 471, 88, 30, 19, Color("e54545"))
+    medal_text.name = "MedalText"
     sprite(screen, "UI_GOLD_ICON", 499, 471, 30, 30)
     gold_text = label(screen, "", 534, 471, 102, 30, 19, Color("ffda5c"))
     content = Control.new()
@@ -54,12 +58,21 @@ func _ready() -> void:
     bottom.position = Vector2(0, 1284)
     bottom.size = Vector2(640, 96)
     screen.add_child(bottom)
+    LocalGameState.state_changed.connect(_on_state_changed)
     select_menu(0)
     refresh()
+
+func _on_state_changed() -> void:
+    call_deferred("_redraw_from_state")
+
+func _redraw_from_state() -> void:
+    refresh()
+    render_menu()
 
 func select_menu(index: int) -> void:
     selected = index
     subview = -1
+    feedback = ""
     render_menu()
 
 func render_menu() -> void:
@@ -108,7 +121,7 @@ func build_quests() -> void:
         var y := 88 + i * 110
         nine(content, "UI_LIST_BG", 0, y, 640, 110, 3)
         var icon := quest_sprite(content, "M_%02d_on" % (i + 1), 17, y + 15, 80, 80)
-        var locked := i > 0
+        var locked := int(LocalGameState.player.quest_levels[i]) <= 0
         if locked:
             icon.modulate = Color(0.34, 0.34, 0.34)
         label(content, "%d. %s" % [i + 1, ["기사단 청소", "기사단 무기 손질", "기사단 장비 손질", "차원의 틈새 감시", "만만한 차원수 처치", "사나운 차원수 처치", "수정 원석 채굴"][i]], 108, y + 8, 365, 34, 23,
@@ -118,37 +131,41 @@ func build_quests() -> void:
             Color("ffca44") if not locked else Color("888888"))
         if i == 0:
             block(content, 244, y + 62, 178, 22, Color("5c481a"))
-        label(content, ["00:01", "00:03", "00:05", "00:10", "00:30", "01:00", "02:00"][i], 368, y + 60, 67, 27, 18, Color("b9b9b9"))
+        var remaining := LocalGameState.quest_remaining(i)
+        label(content, "%02d:%02d" % [remaining / 60, remaining % 60] if remaining > 0 else ["00:01", "00:03", "00:05", "00:10", "00:30", "01:00", "02:00"][i], 368, y + 60, 67, 27, 18, Color("b9b9b9"))
         nine(content, "UI_COMMON_BUTTON_ON" if not locked else "UI_COMMON_BUTTON_OFF", 472, y + 11, 160, 83, 13)
         label(content, "+7" if i == 0 else "", 481, y + 12, 126, 31, 21, Color.WHITE)
         sprite(content, "UI_GOLD_ICON" if not locked else "UI_GRAY_GOLD", 490, y + 59, 26, 26)
         label(content, ["1", "110", "1.6a", "25.1a", "401.8a", "6.8b", "100b"][i], 520, y + 57, 102, 29, 20,
             Color("ffd058") if not locked else Color("777777"))
-        if not locked:
-            hit(content, 472, y + 11, 160, 83, battle)
-    notice = label(content, "", 15, 745, 610, 30, 18, Color("f4d771"))
+        hit(content, 472, y + 11, 160, 83, quest_action.bind(i))
+    notice = label(content, feedback, 15, 745, 610, 30, 18, Color("f4d771"))
 
 func build_units() -> void:
     menu_bar("병사", ["BTN_BUY_UNIT_SHOP", "BTN_TIME_SHOP", "BTN_ALL_LEVELUP", "UNIT_MENU_4"],
         ["병사구입", "시간의 상점", "일괄 강화", "병사 장비"])
-    for i in 4:
-        var y := 88 + i * 110
+    for i in LocalGameState.player.units.size():
+        var y: int = 88 + i * 110
         nine(content, "UI_LIST_BG", 0, y, 640, 110, 3)
         sprite(content, "UI_UNIT_ICONS%04d" % (i + 1), 15, y + 17, 73, 76)
         label(content, "병사 %d" % (i + 1), 102, y + 15, 270, 31, 23, Color("ffdc65"))
-        label(content, "Lv. %d" % LocalGameState.player.unit_level, 103, y + 53, 230, 30, 19, Color.WHITE)
-        game_button(content, "강화", 475, y + 25, 148, 60, enhance)
+        label(content, "Lv. %d" % LocalGameState.player.units[i], 103, y + 53, 230, 30, 19, Color.WHITE)
+        game_button(content, "강화 %d" % LocalGameState.unit_cost(i), 475, y + 25, 148, 60, enhance_unit.bind(i))
         hit(content, 15, y + 12, 440, 85, open_subview.bind(4))
-    notice = label(content, "", 15, 493, 610, 30, 18, Color("f4d771"))
+    notice = label(content, feedback, 15, 493, 610, 30, 18, Color("f4d771"))
 
 func build_treasures() -> void:
-    menu_bar("유물 0/0", ["TREASURE_SHOP", "BTN_TIME_SHOP", "BTN_TRANS_TREASURE1", "DUNGEON_ITEM0001"],
+    menu_bar("유물 %d/20" % LocalGameState.player.relics.size(), ["TREASURE_SHOP", "BTN_TIME_SHOP", "BTN_TRANS_TREASURE1", "DUNGEON_ITEM0001"],
         ["유물구입", "시간의 상점", "유물 초월", "던전"])
-    label(content, "소유한 유물이 없습니다", 70, 220, 500, 60, 23, Color("999999"), HORIZONTAL_ALIGNMENT_CENTER)
+    if LocalGameState.player.relics.is_empty():
+        label(content, "소유한 유물이 없습니다", 70, 220, 500, 60, 23, Color("999999"), HORIZONTAL_ALIGNMENT_CENTER)
+    else:
+        for i in mini(LocalGameState.player.relics.size(), 5):
+            panel_row(85 + i * 112, "유물 %d" % LocalGameState.player.relics[i], "보유 중", "TreasureBox")
     notice = null
 
 func build_pvp() -> void:
-    menu_bar("명예코인 : 0", ["BTN_COIN_SHOP"], ["명예 상점"])
+    menu_bar("명예코인 : %d" % LocalGameState.player.medals, ["BTN_COIN_SHOP"], ["명예 상점"])
     var titles := ["무한랭킹전", "일일 랭킹전", "도전의 탑", "차원의 전투", "월드 보스"]
     var icons := ["UI_PVP_ICON", "UI_DAILY_RANKING_ICON_ON", "ICON_TOWER", "UI_OUTLAND_ICON", "BOSS-RAID-ICON"]
     for i in titles.size():
@@ -160,15 +177,23 @@ func build_pvp() -> void:
 func build_inventory() -> void:
     menu_bar("인벤토리", ["UNIT_MENU_1", "TreasureBox", "UI-PET-TICKET", "BATTLE_SHIP_ICON"],
         ["병사", "유물", "펫", "전함"])
-    label(content, "보관된 내역이 없습니다.", 50, 215, 540, 60, 22, Color("999999"), HORIZONTAL_ALIGNMENT_CENTER)
+    if LocalGameState.player.inventory.is_empty():
+        label(content, "보관된 내역이 없습니다.", 50, 215, 540, 60, 22, Color("999999"), HORIZONTAL_ALIGNMENT_CENTER)
+    else:
+        for i in mini(LocalGameState.player.inventory.size(), 5):
+            panel_row(85 + i * 112, "유물 %d" % LocalGameState.player.inventory[i].id, "보관 중", "TreasureBox")
     notice = null
 
 func build_shop() -> void:
     menu_bar("상점", ["BTN_GEM_SHOP", "BTN_GOLD_SHOP", "BTN_BUFF_SHOP", "BTN_BUY_UNIT_SHOP"],
         ["보석 상점", "버프 상점", "프리미엄", "병사 상점"])
-    panel_row(90, "20분간 게임속도 2배", "광고/온라인 기능: 서버리스 대체 설계 필요", "UI_SHOP_SPEED2")
+    panel_row(90, "20분간 게임속도 2배", "로컬 골드 500", "UI_SHOP_SPEED2")
+    hit(content, 0, 90, 640, 106, buy_speed)
     panel_row(202, "20분간 게임속도 3배", "보석 100", "UI_SHOP_SPEED3")
+    hit(content, 0, 202, 640, 106, buy_gem_buff.bind("speed3"))
     panel_row(314, "20분간 병사공격력 증가", "보석 100", "UI_SHOP_STRONG_UP")
+    hit(content, 0, 314, 640, 106, buy_gem_buff.bind("damage"))
+    label(content, feedback, 20, 440, 600, 35, 18, Color("f4d771"))
     notice = null
 
 func open_subview(index: int) -> void:
@@ -215,6 +240,19 @@ func build_subview() -> void:
     sprite(content, icon, 252, 109, 136, 136)
     for i in rows.size():
         panel_row(284 + i * 110, rows[i], "", icon)
+    if selected == 0 and subview == 0:
+        game_button(content, "자동 전투 끄기" if LocalGameState.player.auto_battle else "자동 전투 켜기", 200, 660, 240, 65, local_action)
+    elif selected == 1 and subview == 0:
+        game_button(content, "병사 구매", 200, 660, 240, 65, local_action)
+    elif selected == 1 and subview == 2:
+        game_button(content, "일괄 강화", 200, 660, 240, 65, local_action)
+    elif selected == 2 and subview == 0:
+        game_button(content, "유물 구매 (%d)" % LocalGameState.RELIC_COST, 200, 660, 240, 65, local_action)
+    elif selected == 3 and subview < 5:
+        game_button(content, "로컬 도전", 200, 660, 240, 65, local_action)
+    elif selected == 5 and subview == 1:
+        game_button(content, "속도 버프 구매", 200, 660, 240, 65, local_action)
+    label(content, feedback, 40, 735, 560, 35, 18, Color("f4d771"), HORIZONTAL_ALIGNMENT_CENTER)
     notice = null
 
 func menu_bar(title: String, icons: Array, captions: Array) -> void:
@@ -237,18 +275,58 @@ func panel_row(y: float, title: String, subtitle: String, icon_name: String) -> 
 
 func battle() -> void:
     var reward: int = LocalGameState.clear_stage()
-    notice.text = "승리! +%d 골드" % reward
+    feedback = "승리! +%d 골드" % reward
     refresh()
 
-func enhance() -> void:
-    var success: bool = LocalGameState.enhance_unit()
-    select_menu(1)
-    notice.text = "강화 완료" if success else "골드 부족"
+func enhance_unit(index: int) -> void:
+    var success: bool = LocalGameState.enhance_unit(index)
+    feedback = "강화 완료" if success else "골드 부족"
+    render_menu()
     refresh()
+
+func quest_action(index: int) -> void:
+    if int(LocalGameState.player.quest_levels[index]) <= 0:
+        feedback = "퀘스트 해금" if LocalGameState.unlock_quest(index) else "골드 부족"
+    else:
+        feedback = "퀘스트 시작" if LocalGameState.start_quest(index) else "진행 중"
+    render_menu()
+
+func toggle_auto_battle() -> void:
+    LocalGameState.set_auto_battle(not LocalGameState.player.auto_battle)
+    refresh()
+
+func buy_speed() -> void:
+    feedback = "2배 속도 적용" if LocalGameState.buy_speed() else "골드 부족"
+    render_menu()
+
+func buy_gem_buff(kind: String) -> void:
+    feedback = "버프 적용" if LocalGameState.buy_gem_buff(kind) else "보석 부족"
+    render_menu()
+
+func local_action() -> void:
+    var success := false
+    if selected == 0 and subview == 0:
+        LocalGameState.set_auto_battle(not LocalGameState.player.auto_battle)
+        success = true
+    elif selected == 1 and subview == 0:
+        success = LocalGameState.buy_unit()
+    elif selected == 1 and subview == 2:
+        for i in LocalGameState.player.units.size():
+            success = LocalGameState.enhance_unit(i) or success
+    elif selected == 2 and subview == 0:
+        success = LocalGameState.buy_relic()
+    elif selected == 3 and subview < 5:
+        success = LocalGameState.play_challenge(subview)
+    elif selected == 5 and subview == 1:
+        success = LocalGameState.buy_speed()
+    feedback = "완료" if success else "조건 또는 재화 부족"
+    render_menu()
 
 func refresh() -> void:
     stage_text.text = "STAGE %d" % LocalGameState.player.stage
     gold_text.text = str(LocalGameState.player.gold)
+    screen.get_node("GemText").text = str(LocalGameState.player.gems)
+    screen.get_node("MedalText").text = str(LocalGameState.player.medals)
 
 func clear_layer(parent: Control) -> void:
     for child in parent.get_children():
