@@ -13,7 +13,16 @@ case "$1" in
         ;;
 esac
 
-adb_bin=/Users/backii/Library/Android/sdk/platform-tools/adb
+if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -x "$ANDROID_SDK_ROOT/platform-tools/adb" ]; then
+    adb_bin="$ANDROID_SDK_ROOT/platform-tools/adb"
+elif command -v adb >/dev/null 2>&1; then
+    adb_bin=$(command -v adb)
+elif [ -x "$HOME/Library/Android/sdk/platform-tools/adb" ]; then
+    adb_bin="$HOME/Library/Android/sdk/platform-tools/adb"
+else
+    echo "adb not found; set ANDROID_SDK_ROOT or add platform-tools to PATH" >&2
+    exit 1
+fi
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 output_dir="$project_dir/reference/android_screens"
 remote_path="/sdcard/Download/ef_reference_$1.png"

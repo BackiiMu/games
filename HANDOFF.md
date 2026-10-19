@@ -67,7 +67,9 @@
 1. `reference/endless_frontier_reference.png`와 `reference/godot_current.png`를 나란히 비교하며 `QuestSubMenu`, `QuestItemRenderer`, `UnitView`, `TopMenu`의 폰트/버튼/상태를 더 보정한다.
 2. 정적 전투 크롭을 원본 시트의 배경·유닛·효과 레이어로 대체해 스테이지 UI와 로컬 게임 상태가 시각적으로 일치하게 한다.
 3. `UNIT_ITEM`, `PET_SHEET`, `TREASURE_UI` 시트의 `.vo`도 같은 파서로 복원해 관련 화면에 적용한다.
-4. 유물·대전·인벤토리·상점의 기본 뼈대를 원본 실기기 캡처와 비교해 원본 UI로 정밀화한다.
+4. `reference/android_screens/`의 환생 후 병사·유물·대전·인벤토리·상점 캡처와 Godot 화면을 비교해 각 탭 UI를 정밀화한다.
 5. 이후 로컬 상점/보상/강화 흐름을 원본 화면 전환과 맞춘다.
+
+실기기 캡처 현황과 환생/던전 진행 결과는 `reference/android_screens/CAPTURE_LOG.md`를 확인한다. 탑·차원의 전투·월드 보스 및 무한랭킹전은 입장 조건 때문에 아직 내부 화면을 확보하지 못했다.
 
 현재 UI는 원본 리소스와 실기기 캡처를 반영한 중간 단계이며 최종 일치 검증은 아직 진행 중이다.
